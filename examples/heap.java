@@ -85,7 +85,7 @@ final class Heap {
     context [1\4]arrIsHeapSkip(xs, elems, freshIndex);
     requires freshIndex <= j;
     ensures isSubHeap(xs, j);
-    private static void lemmaIsSubHeap(int[] xs, seq<int> elems, int freshIndex, int j) {
+    ghost private static void lemmaIsSubHeap(int[] xs, seq<int> elems, int freshIndex, int j) {
         // Left child
         if (hasChild(j, xs.length, true)) {
             lemmaIsSubHeap(xs, elems, freshIndex, childIndex(j, true));
