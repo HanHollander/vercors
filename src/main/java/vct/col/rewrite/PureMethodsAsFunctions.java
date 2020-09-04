@@ -60,18 +60,21 @@ public class PureMethodsAsFunctions extends AbstractRewriter {
       ASTSpecial e=(ASTSpecial)S;
       res=create.expression(StandardOperator.Unfolding,rewrite(e.getArg(0)),do_body(body,i+1));
     } else if (S instanceof IfStatement) {
-      if (i!=body.getLength()-1){
+      if (i != body.getLength() - 1) {
         throw new HREError("if must be last statement in body");
       }
-      IfStatement ITE=(IfStatement)S;
-      if (ITE.getCount()!=2 || !ITE.getGuard(1).isConstant(true)){
-        throw new HREError("unsupported variant of if-then %s",S);
+      IfStatement ITE = (IfStatement) S;
+      if (ITE.getCount() != 2 || !ITE.getGuard(1).isConstant(true)) {
+        throw new HREError("unsupported variant of if-then %s", S);
       }
-      res=create.expression(StandardOperator.ITE,
-        ITE.getGuard(0),
-        do_body((BlockStatement)ITE.getStatement(0),0),
-        do_body((BlockStatement)ITE.getStatement(1),0)
+      res = create.expression(StandardOperator.ITE,
+              ITE.getGuard(0),
+              do_body((BlockStatement) ITE.getStatement(0), 0),
+              do_body((BlockStatement) ITE.getStatement(1), 0)
       );
+    } else if (S instanceof DeclarationStatement) {
+      DeclarationStatement decl = (DeclarationStatement) S;
+      res = create.let_expr(decl, do_body(body, i + 1));
     } else {
       throw new HREError("unsupported pure statement %s",S);
     }

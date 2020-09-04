@@ -3,6 +3,7 @@ final class Heap {
 
     //@ requires 0 <= i;
     //@ ensures 0 <= \result;
+    //@ ensures i != 0 ==> (i == childIndex(\result, true) || i == childIndex(\result, false));
     private static /*@ pure @*/ int parentIndex(int i) {
         if (i == 0) {
             return 0;
@@ -11,12 +12,9 @@ final class Heap {
         }
     }
 
+    //@ requires 0 <= i;
     private static /*@ pure @*/ boolean hasChild(int i, int length, boolean leftChild) {
-        if (leftChild) {
-            return i * 2 + 1 < length;
-        } else {
-            return i * 2 + 2 < length;
-        }
+        return childIndex(i, leftChild) < length;
     }
 
     //@ requires 0 <= i;
@@ -29,11 +27,11 @@ final class Heap {
         }
     }
 
-    //@ requires 0 <= parent;
-    //@ requires childIndex(parent, true) == other || childIndex(parent, false) == other;
-    //@ ensures childIndex(parent, true) == other ==> \result == childIndex(parent, false);
-    //@ ensures childIndex(parent, false) == other ==> \result == childIndex(parent, true);
-    private static /*@ pure @*/ int getSiblingIndex(int parent, int other) {
+    //@ requires 0 <= other;
+    //@ ensures 0 <= \result;
+    //@ ensures \result == childIndex(parentIndex(other), false) || \result == childIndex(parentIndex(other), true);
+    private static /*@ pure @*/ int getSiblingIndex(int other) {
+        int parent = parentIndex(other);
         if (parent * 2 + 1 == other) {
             return parent * 2 + 2;
         } else {
@@ -68,58 +66,97 @@ final class Heap {
         requires xs != null;
         requires Perm(xs[*], read);
         requires 0 <= j && j < xs.length;
-        private static bool isSubHeap(int[] xs, int j) = isSubHeapDir(xs, j, true) && isSubHeapDir(xs, j, false);
-     @*/
-
-    /*@
-        requires xs != null;
-        requires Perm(xs[*], read);
-        requires 0 <= j && j < xs.length;
-        private static bool isSubHeapDir(int[] xs, int j, boolean left) =
-            hasChild(xs.length, j, left)
-                ? xs[j] >= xs[childIndex(j, left)] && isSubHeap(xs, childIndex(j, left))
-                : true;
+        private static bool isSubHeap(int[] xs, int j) =
+            (hasChild(xs.length, j, true) ==>
+                xs[j] >= xs[childIndex(j, true)] && isSubHeap(xs, childIndex(j, true)))
+            &&
+            (hasChild(xs.length, j, false) ==>
+                xs[j] >= xs[childIndex(j, false)] && isSubHeap(xs, childIndex(j, false)));
      @*/
 
     /*@
     context [1\4]arrIsHeapSkip(xs, elems, freshIndex);
-    requires freshIndex <= j;
+    requires 0 <= freshIndex && freshIndex < xs.length;
+    requires freshIndex <= j && j < xs.length;
     ensures isSubHeap(xs, j);
     ghost private static void lemmaIsSubHeap(int[] xs, seq<int> elems, int freshIndex, int j) {
         // Left child
         if (hasChild(j, xs.length, true)) {
             lemmaIsSubHeap(xs, elems, freshIndex, childIndex(j, true));
+            assert isSubHeap(xs, childIndex(j, true));
         }
+        // Right child
         if (hasChild(j, xs.length, false)) {
             lemmaIsSubHeap(xs, elems, freshIndex, childIndex(j, false));
+            assert isSubHeap(xs, childIndex(j, false));
         }
     }
     @*/
 
-    /*
-    context [1\2]arrIsHeapSkip(xsOld, oldElems, freshIndex);
+    /*@
+    context [1\4]arrIsHeapSkip(xs, elems, freshIndex);
+    requires 0 <= freshIndex && freshIndex < xs.length;
+    requires getSiblingIndex(freshIndex) == j;
+    requires 0 <= j && j < xs.length;
+    ensures isSubHeap(xs, j);
+    ghost private static void lemmaIsSubHeapSibling(int[] xs, seq<int> elems, int freshIndex, int j) {
+        // Left child
+        if (hasChild(j, xs.length, true)) {
+            lemmaIsSubHeap(xs, elems, freshIndex, childIndex(j, true));
+            assert isSubHeap(xs, childIndex(j, true));
+        }
+        // Right child
+        if (hasChild(j, xs.length, false)) {
+            lemmaIsSubHeap(xs, elems, freshIndex, childIndex(j, false));
+            assert isSubHeap(xs, childIndex(j, false));
+        }
+    }
+    @*/
+
+    /*@
+    context [1\2]arrIsHeapSkip(xs, xsElems, freshIndex);
+    requires 0 <= freshIndex && freshIndex < xs.length;
     requires xs[parentIndex(freshIndex)] < xs[freshIndex];
-    ensures [1\2]arrIsHeapSkip(xsNew, newElems, parentIndex(freshIndex));
-    void lemmaHeapSkipSwap(int[] xsOld, seq<int> oldElems, int[] xsNew, seq<int> newElems, int freshIndex) {
+    ensures [1\2]arrIsHeapSkip(ys, ysElems, parentIndex(freshIndex));
+    ghost void lemmaHeapSkipSwap(int[] xs, seq<int> xsElems, int[] ys, seq<int> ysElems, int freshIndex) {
         int parentFreshIndex = parentIndex(freshIndex);
 
         // If freshIndex == 0, the < requires does not hold
         assert freshIndex != parentFreshIndex;
         assert 0 <= parentFreshIndex && parentFreshIndex < freshIndex;
 
-        int siblingIndex = getSiblingIndex(parentFreshIndex, freshIndex);
+        int siblingIndex = getSiblingIndex(freshIndex);
 
-        lemmaIsSubHeap(xsOld, OldElems, freshIndex, freshIndex);
-        assert isSubHeap(xsOld, freshIndex);
-        lemmaIsSubHeap(xsOld, OldElems, freshIndex, siblingIndex);
-        assert isSubHeap(xsOld, siblingIndex);
+        lemmaIsSubHeap(xs, xsElems, freshIndex, freshIndex);
+        assert isSubHeap(xs, freshIndex);
+
+        if (siblingIndex < xs.length) {
+            lemmaIsSubHeapSibling(xs, xsElems, freshIndex, siblingIndex);
+            assert isSubHeap(xs, siblingIndex);
+        }
+
         assert xs[parentIndex(freshIndex)] < xs[freshIndex];
         // Implies (in my opinion, not yet proven):
-        assert isSubHeap(xsNew, parentFreshIndex);
+        assert isSubHeap(ys, parentFreshIndex);
 
-        assert [1\2]arrIsHeapSkip(xsNew, newElems, parentFreshIndex);
+        assert [1\2]arrIsHeapSkip(ys, ysElems, parentFreshIndex);
     }
-    */
+    @*/
+
+    /*@
+    context xs != null ** Perm(xs[*], 1\2) ** xs.length > 0;
+    requires 0 <= j && j < xs.length;
+    requires isSubHeap(xs, j);
+    ensures (\forall int i = j .. xs.length; {: xs[parentIndex(i)] :} >= xs[i]);
+    ghost void lemmaSubheapImpliesIsHeap(int[] xs, int j) {
+        if (hasChild(xs.length, j, false)) {
+            lemmaSubheapImpliesIsHeap(xs, childIndex(j, false));
+        }
+        if (hasChild(xs.length, j, true)) {
+            lemmaSubheapImpliesIsHeap(xs, childIndex(j, true));
+        }
+    }
+     @*/
 
     //@ given seq<int> elems;
     //@ requires heapInv(elems);
