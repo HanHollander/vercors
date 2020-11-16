@@ -604,7 +604,7 @@ public class Main
           passes.add("standardize");
           passes.add("check");
           passes.add("inline-pattern-to-trigger");
-          passes.add("gen-triggers");
+//          passes.add("gen-triggers");
           passes.add("check");
 
           passes.add("silver");

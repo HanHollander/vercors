@@ -1,0 +1,74 @@
+/* Sequential Union Find */
+
+class UF {
+
+    // determines whether S is a valid union-find
+    static inline pure boolean UnionFind(int N, seq<int> S) =
+        |S| == N &&  // Size constrain on S
+        (\forall int i; 0 <= i && i < N; 0 <= S[i] && S[i] < N) &&  // Bounds on elements of S
+        (\forall int i; 0 <= i && i < N; S[rep(N, S, i)] == rep(N, S, i));
+
+    // recursively finds the representative of v in S
+    requires 0 <= v && v < N;
+    requires |S| == N;
+    context (\forall int i; 0 <= i && i < N; 0 <= S[i] && S[i] < N);
+    ensures 0 <= \result && \result < N;
+    ensures S[\result] == \result;
+    static pure int rep(int N, seq<int> S, int v) =
+        S[v] == v ? v : rep(N, S, S[v]);
+
+    // unites the partitions containing v and w
+    requires 0 <= v && v < N;
+    requires 0 <= w && w < N;
+    requires UnionFind(N, S);
+    ensures |\result| == N;
+    ensures \result[rep(N, S, w)] == rep(N, S, v);
+    ensures UnionFind(N, \result);
+    static pure seq<int> unite(int N, seq<int> S, int v, int w) =
+        S[UF.rep(N, S, w) -> UF.rep(N, S, v)];  // not going for efficiency here, now worst case find could take
+                                                // linear time instead of quasi-constant
+
+    // finds the partition in S that v is in
+    requires 0 <= v && v < N;
+    requires UnionFind(N, S);
+    //ensures 0 <= |\result| && |\result| <= N;
+    ensures UnionFind(N, S);
+    ensures (\forall int i; 0 <= i && i < N; UF.rep(N, S, i) == UF.rep(N, S, v) ==> i in \result);
+    static pure set<int> find(int N, seq<int> S, int v) =
+        set<int> {i | int i, int N <- [N], seq<int> S <- [S], int v <- [v];
+                      0 <= i && i < N && 0 <= v && v < N && UF.UnionFind(N, S) && UF.rep(N, S, i) == UF.rep(N, S, v)};
+
+
+    void main() {
+        int N = 6;
+                    // 0  1  2  3  4  5
+        seq<int> p1 = [0, 0, 1, 4, 4, 3];
+        seq<int> p2 = [0, 0, 1, 4, 5, 3];  // TODO NO CYCLES
+
+        /* UnionFind */
+        assert UnionFind(N, p1);
+
+        /* rep */
+        assert rep(N, p1, 0) == 0;
+        assert rep(N, p1, 1) == 0;
+        assert rep(N, p1, 2) == 0;
+        //assert rep(N, p1, 3) == 4;
+        assert rep(N, p1, 4) == 4;
+        //assert rep(N, p1, 5) == 4;
+
+        /* unite */
+        assert !(\forall int i; 0 <= i && i < N; rep(N, p1, i) == 0);
+        p1 = unite(N, p1, 2, 4);  // [0, 0, 1, 4, 0, 3]
+        assert UnionFind(N, p1) && p1 == [0, 0, 1, 4, 0, 3];
+        assert (\forall int i; 0 <= i && i < N; rep(N, p1, i) == 0);
+        p1 = unite(N, p1, 5, 2);  // [0, 0, 1, 4, 0, 3] nothing changes because rep(v) == rep(w)
+        assert UnionFind(N, p1) && p1 == [0, 0, 1, 4, 0, 3];
+        assert (\forall int i; 0 <= i && i < N; rep(N, p1, i) == 0);
+
+        /* find */
+        assert find(N, p1, 0) == set<int> {0, 1, 2, 3, 4, 5};
+
+    }
+
+
+}

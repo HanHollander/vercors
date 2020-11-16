@@ -1,0 +1,221 @@
+// Based on NDFS proof: https://github.com/wytseoortwijn/SupplementaryMaterialsThesis
+
+/* Sequential set-based SCC */
+
+class SB {
+
+    int N;
+    seq<seq<boolean>> G;
+    seq<int> S;
+    seq<int> R;
+    set<int> Explored;
+    set<int> Visited;
+
+
+    /* -------------------------------------------------------------------------------------------------------- Stack */
+
+    // determines whether 'S' is a valid stack, represented by a sequence
+    static inline pure boolean Stack (int N, seq<int> R) =
+        0 <= |R| && |R| <= N &&
+        (\forall int i; 0 <= i && i < |R|; (\forall int j; i < j && j < |R|; R[i] != R[j])) &&
+        (\forall int i; i in R; 0 <= i && i < N);
+
+    // push(N, R, v): pushes state v to the stack R
+    requires 0 <= v && v < N;  // v is valid
+    requires !(v in R);  // v is not already in R
+    requires |R| < N;  // R is not already N long
+    requires Stack(N, R);  // R is a valid stack
+    ensures v in \result;  // v is in the result
+    ensures Stack(N, \result);  // the result is a valid stack
+    static pure seq<int> push(int N, seq<int> R, int v) =
+        R ++ v;
+
+    // pop(N, R): returns and removes last state (highest index) of/from R
+    requires |R| > 0;  // there is at least one element on the stack
+    requires Stack(N, R);  // R is a valid stack
+    ensures getSnd(\result) == R[|R| - 1];  // the popped state is the last state from R
+    ensures getFst(\result) == R[0..|R| - 1];  // the resulting stack is R without the last state
+    ensures (\forall int i; i in getFst(\result); i in R);
+    ensures Stack(N, getFst(\result));  // the resulting stack is a valid stack
+    static pure tuple<seq<int>, int> pop(int N, seq<int> R) =
+        tuple<seq<int>, int> {R[0..|R| - 1], R[|R| - 1]};
+
+    // top(N, R); returns last state (highest index) of R (peeks at top of R)
+    requires |R| > 0;  // there is at least one element on the stack
+    requires Stack(N, R);  // R is a valid stack
+    ensures \result == R[|R| - 1];  // the returned/peeked state is the last state from R
+    static pure int top(int N, seq<int> R) =
+        R[|R| - 1];
+
+
+    /* --------------------------------------------------------------------------------------------------- Union-find */
+
+    // determines whether S is a valid union-find
+    static inline pure boolean UnionFind(int N, seq<int> S) =
+        |S| == N &&  // Size constrain on S
+        (\forall int i; 0 <= i && i < N; 0 <= S[i] && S[i] < N) &&  // Bounds on elements of S
+        (\forall int i; 0 <= i && i < N; S[rep(N, S, i)] == rep(N, S, i));
+
+    // recursively finds the representative of v in S
+    requires 0 <= v && v < N;
+    requires |S| == N;
+    context (\forall int i; 0 <= i && i < N; 0 <= S[i] && S[i] < N);
+    ensures 0 <= \result && \result < N;
+    ensures S[\result] == \result;
+    static pure int rep(int N, seq<int> S, int v) =
+        S[v] == v ? v : rep(N, S, S[v]);
+
+    // unites the partitions containing v and w
+    requires 0 <= v && v < N;
+    requires 0 <= w && w < N;
+    requires UnionFind(N, S);
+    ensures |\result| == N;
+    ensures \result[rep(N, S, w)] == rep(N, S, v);
+    ensures UnionFind(N, \result);
+    static pure seq<int> unite(int N, seq<int> S, int v, int w) =
+        S[SB.rep(N, S, w) -> SB.rep(N, S, v)];  // not going for efficiency here, now worst case find could take
+                                                // linear time instead of quasi-constant
+
+    // finds the partition in S that v is in
+    requires 0 <= v && v < N;
+    requires UnionFind(N, S);
+    //ensures 0 <= |\result| && |\result| <= N;
+    ensures UnionFind(N, S);
+    ensures (\forall int i; 0 <= i && i < N; SB.rep(N, S, i) == SB.rep(N, S, v) ==> i in \result);
+    static pure set<int> find(int N, seq<int> S, int v) =
+        set<int> {i | int i, int N <- [N], seq<int> S <- [S], int v <- [v];
+                      0 <= i && i < N && 0 <= v && v < N && SB.UnionFind(N, S) && SB.rep(N, S, i) == SB.rep(N, S, v)};
+
+
+    /* --------------------------------------------------------------------------------------------- Graph Properties */
+
+    // determines whether `C` is a component in a graph with size `N`
+    static inline pure boolean Component(int N, set<int> C) =
+        0 < |C| && |C| <= N &&
+        (\forall int v; v in C; 0 <= v && v < N);
+
+    // determines whether `G` is an adjacency matrix of size `N`
+    static inline pure boolean AdjacencyMatrix(int N, seq<seq<boolean>> G) =
+        |G| == N && (\forall seq<boolean> e; e in G; |e| == N);
+
+
+    /* -------------------------------------------------------------------------------------------------------- Paths */
+
+    // determines whether `P` is a path from `x` to `y` in the graph `G`.
+    requires AdjacencyMatrix(N, G);
+    static pure boolean Path(int N, seq<seq<boolean>> G, int x, int y, seq<int> P) =
+        0 <= x && x < N && 0 <= y && y < N &&
+        0 < |P| && P[0] == x && P[|P| - 1] == y &&
+        (\forall int j; 0 <= j && j < |P|; 0 <= P[j] && P[j] < N) &&
+        (\forall int j; 0 <= j && j < |P| - 1; G[P[j]][P[j + 1]]);
+
+    // existential quantification over paths in `G` of length at least `len`.
+    requires AdjacencyMatrix(N, G);
+    static pure boolean ExPath(int N, seq<seq<boolean>> G, int x, int y, int len) =
+        (\exists seq<int> P; len <= |P|; Path(N, G, x, y, P));
+
+    // determines whether `P` is a path from `x` to `y` in the graph `G` visiting only states in C.
+    requires AdjacencyMatrix(N, G);
+    static pure boolean FittingPath(int N, seq<seq<boolean>> G, int x, int y, seq<int> P, set<int> C) =
+        Path(N, G, x, y, P) &&
+        (\forall int v; v in P; v in C);
+
+    // existential quantification over fitting paths in `G` of length at least `len`.
+    requires AdjacencyMatrix(N, G);
+    static pure boolean ExFittingPath(int N, seq<seq<boolean>> G, int x, int y, int len, set<int> C) =
+        (\exists seq<int> P; len <= |P|; FittingPath(N, G, x, y, P, C));
+
+    /* --------------------------------------------------------------------------------------------------------- SCCs */
+
+    requires Component(N, C);
+    requires AdjacencyMatrix(N, G);
+    static pure boolean PSCC(int N, seq<seq<boolean>> G, set<int> C) =
+        (\forall int v; v in C; (\forall int w; w in C && w != v; ExPath(N, G, v, w, 1) &&
+                                                                  ExPath(N, G, w, v, 1)));
+    requires Component(N, C);
+    requires AdjacencyMatrix(N, G);
+    static pure boolean FSCC(int N, seq<seq<boolean>> G, set<int> C) =
+        (\forall int v; v in C; (\forall int w; w in C && w != v; ExFittingPath(N, G, v, w, 1, C) &&
+                                                                  ExFittingPath(N, G, w, v, 1, C)));
+    requires Component(N, C);
+    requires AdjacencyMatrix(N, G);
+    static pure boolean SCC(int N, seq<seq<boolean>> G, set<int> C) =
+        FSCC(N, G, C) &&
+        (\forall set<int> Cp; Component(N, Cp) && FSCC(N, G, Cp) && Cp != C; !(\forall int i; i in C; i in Cp));
+
+
+
+
+
+    // ---- context_everywhere ---- \\
+    context_everywhere Perm(N, 1\2) ** Perm(G, 1\2) ** Perm (S, 1) ** Perm(R, 1) **
+                       Perm(Explored, 1) ** Perm(Visited, 1);  // Permissions for global state
+    context_everywhere AdjacencyMatrix(N, G) && UnionFind(N, S) && Stack(N, R) &&
+                       Component(N, Explored) && Component(N, Visited);  // Constraints on global state
+    context 0 <= v && v < N;  // Constraints on v
+    // --------- requires --------- \\
+    requires !(v in Visited) && |Visited| < N;
+    requires !(v in R) && |R| < N;
+    requires (\forall int v; v in R; v in Visited);  // R is a subset of Visited
+    // ---------- ensures --------- \\
+    //ensures (\forall int c; c in \result; 0 <= c);
+    //ensures (\forall int c; c in \result; FSCC(N, G, find(N, \result, c)));  // SOUNDNESS: All partitions in S are FSCC
+    //ensures (\forall int c; c in \result; SCC(find(N, S, c)));  // SOUNDNESS+COMPLETENESS 1
+    //ensures All reachable SCCs are in S;  // COMPLETENESS 2
+    seq<int> SetBased(int v){
+
+        Visited = Visited + set<int> {v};
+        R = push(N, R, v);
+
+        int w = 0;
+
+        //assert 0 <= v && v < N;
+
+        loop_invariant 0 <= v && v < N;
+        loop_invariant 0 <= w && w <= N;
+        loop_invariant (\forall int v; v in R; v in Visited);
+        //loop_invariant |R| <= |Visited|;
+        //loop_invariant |R| <= N;
+        while (w < N) {
+            //assert 0 <= v && v < N;
+            if (G[v][w]) {  // True if w successor of v
+        	    if (!(w in Explored)) {  // True if
+        	        if (!(w in Visited)) {
+
+                        //assert !(w in Visited) ==> !(w in R);
+        	            //assert !(w in R);  // w is not in Visited, and R is a subset of Visited, so w is not in R
+        	            //assert Stack(N, R);
+        	            //assert (\exists int x; 0 <= x && x < N; !(x in R));
+                        //assert |R| < N;
+                        //assert |Visited| < N;
+                        //assert Component(N, Visited);
+                        //assert 0 <= w && w < N && !(w in Visited);
+
+
+                        assume !(w in Visited) ==> |Visited| < N;  // TODO ASSUME
+                        assume |R| < N;  // TODO ASSUME
+                        assume !(w in R);  // TODO ASSUME
+
+        	            SetBased(w);
+        	        } else {
+
+
+        	            //while (find(N, S, v) != find(N, S, w)) {
+        	            //    tuple<seq<int>, int> t = pop(N, R); R = getFst(t); int r = getSnd(t);
+        	            //    unite(N, S, r, top(N, R));
+        	            //}
+        	        }
+        	    }
+            }
+            w++;
+        }
+        assert 0 <= v && v < N;
+
+        if (v == top(N, R)) {
+            Explored = Explored + find(N, S, v);
+        }
+
+        return S;
+    }
+}
+

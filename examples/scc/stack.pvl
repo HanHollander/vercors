@@ -1,0 +1,58 @@
+/* Stack data structure */
+
+class R {
+
+    // determines whether 'S' is a valid stack, represented by a sequence
+	// returns true iff:
+	// 1. the length of R is at most N, and
+	// 2. for all integers i between 0 and the length of R, for all integer j between i and the length of R; the ith
+	//    element of R is not equal to the jth element of R, and
+	// 3. all elements of |R| are at least 0 and at most N - 1, and
+	// 4. (TODO) **property of path from lower to higher on stack**.
+    static inline pure boolean Stack (int N, seq<int> R) =
+        0 <= |R| && |R| <= N &&
+        (\forall int i; 0 <= i && i < |R|; (\forall int j; i < j && j < |R|; R[i] != R[j])) &&
+        (\forall int i; i in R; 0 <= i && i < N);
+
+
+    /* Stack operations */
+    /* -------------------------------------------------------------------------------------------------------------- */
+
+    // push(N, R, v): pushes state v to the stack R
+    /* requires */
+    requires 0 <= v && v < N;  // v is valid
+    requires !(v in R);  // v is not already in R
+    requires |R| < N;  // R is not already N long
+    requires Stack(N, R);  // R is a valid stack
+    /* ensures */
+    ensures v in \result;  // v is in the result
+    ensures Stack(N, \result);  // the result is a valid stack
+    static pure seq<int> push(int N, seq<int> R, int v) =
+        R ++ v;
+
+
+    // pop(N, R): returns and removes last state (highest index) of/from R
+    /* requires */
+    requires |R| > 0;  // there is at least one element on the stack
+    requires Stack(N, R);  // R is a valid stack
+    /* ensures */
+    ensures getSnd(\result) == R[|R| - 1];  // the popped state is the last state from R
+    ensures getFst(\result) == R[0..|R| - 1];  // the resulting stack is R without the last state
+    ensures (\forall int i; i in getFst(\result); i in R);
+    ensures Stack(N, getFst(\result));  // the resulting stack is a valid stack
+    static pure tuple<seq<int>, int> pop(int N, seq<int> R) =
+        tuple<seq<int>, int> {R[0..|R| - 1], R[|R| - 1]};
+
+
+
+    // top(N, R); returns last state (highest index) of R (peeks at top of R)
+    /* requires */
+    requires |R| > 0;  // there is at least one element on the stack
+    requires Stack(N, R);  // R is a valid stack
+    /* ensures */
+    ensures \result == R[|R| - 1];  // the returned/peeked state is the last state from R
+    //ensures R == \old(R) && Stack(N, R);  // R is unchanged and still a valid stack
+    static pure int top(int N, seq<int> R) =
+        R[|R| - 1];
+
+}

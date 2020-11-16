@@ -38,7 +38,7 @@
 					captures = { 1 = { name = 'markup.bold'; }; };
 				},
 				{	name = 'keyword.operator.types.pvl';
-					match = '\b(int|boolean|option|process|zfrac|frac|set|seq|bag)\b';
+					match = '\b(int|boolean|option|process|zfrac|frac|set|seq|bag|map|tuple)\b';
 				},
 			);
 		};
@@ -61,7 +61,7 @@
 		speckeywords = {
 			patterns = (
 				{	name = 'markup.bold.scopedspec.pvl';
-					match = '\b(int|boolean|option|process|zfrac|frac|set|seq|bag|modifies|accessible|requires|ensures|given|yields|invariant|context|loop_invariant|create|qed|apply|use|create|destroy|split|merge|choose|fold|unfold|open|close|assert|assume|inhale|exhale|label|refute|witness|ghost|send|recv|transfer|csl_subject|spec_ignore|null|exists|Perm|HPerm|empty|write|false|true|Future|AbstractState|to|from|action|atomic|PointsTo|Value)\b';
+					match = '\b(int|boolean|option|process|zfrac|frac|set|seq|bag|map|tuple|modifies|accessible|requires|ensures|given|yields|invariant|context|loop_invariant|create|qed|apply|use|create|destroy|split|merge|choose|fold|unfold|open|close|assert|assume|inhale|exhale|label|refute|witness|ghost|send|recv|transfer|csl_subject|spec_ignore|null|exists|Perm|HPerm|empty|write|false|true|Future|AbstractState|to|from|action|atomic|PointsTo|Value)\b';
 				},
 				{	name = 'markup.bold.scopedspec.special.pvl';
 					match = '\\result|\\exists|\\old|\\forall';

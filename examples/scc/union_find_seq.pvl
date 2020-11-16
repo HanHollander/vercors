@@ -1,0 +1,128 @@
+/* Sequential Union Find */
+
+class UF {
+
+    // determines whether 'S' is a valid disjoint mapping from int (positive, bounded by N) to 2^int (same bounds)
+	// returns true iff:
+	// 1. the length of S is at least one and at most N, and
+	// 2. for all keys k in S, the value of S[k] has at least a length 0 and at most of N, and
+	// 3. for all pairs of keys (k1, k2) in S, if k1 is not equal to k2, then for all integers i, if i is in S[k1], 
+	//    then i is not in S[k2]
+	// 4. for all keys k in S, the key k is in S[k], and
+	// 5. for all integers i from 0 up to N there exists at least one key k in S, such that i is in S[k], and
+	// 6. for all keys k in S, all integers i in S[k] are at least 0 and at most N - 1, and
+	// 7. for all keys k in S, for all integers i at least 0 and at most the length of S[k] - 1, for all integers j
+	//    between i and the length of S[k], S[k][i] is not equal to S[k][j].
+	// From the uniqueness (7), disjointness (3) and completeness (5) properties, it follows that
+	// all states occur exactly once in the value sets.
+	// From the fact that keys are in their own value set (4), and that all states in the value set are at least 0 and
+	// at most N - 1 (6), it follows that all keys are at least 0 and at most N - 1.
+    static inline pure boolean UnionFind(int N, map<int, seq<int>> S) =
+/*(1)*/ 1 <= |S| && |S| <= N &&
+/*(2)*/ (\forall int k; k in keysMap(S); 0 <= |S[k]| && |S[k]| <= N) &&
+/*(3)*/ (\forall int k1; k1 in keysMap(S); 
+	        (\forall int k2; k2 in keysMap(S) && k1 != k2; 
+	            (\forall int i; i in S[k1]; !(i in S[k2]))
+	        )
+	    ) &&
+/*(4)*/ (\forall int k; k in keysMap(S); 
+	        k in S[k]
+	    ) &&
+/*(5)*/ (\forall int i; 0 <= i && i < N; 
+	        SetAsSeq(valuesMap(S), ss) ==> i in flatten(ss)
+	    ) &&
+/*(6)*/ (\forall int k; k in keysMap(S); 
+	        (\forall int i; i in S[k]; 
+	            0 <= i && i < N
+	        )
+	    ) &&
+/*(7)*/ (\forall int k; k in keysMap(S);
+	        (\forall int i; 0 <= i && i < |S[k]|;
+	            (\forall int j; i < j && j < |S[k]|; 
+	                S[k][i] != S[k][j]
+	            )
+	        )
+	    );
+
+    static pure seq<int> flatten(seq<seq<int>> ss) =
+        (|ss| == 0) ? [t: int] : head(ss) + flatten(tail(ss));
+
+    static inline pure boolean SetAsSeq(set<seq<int>> ss1, seq<seq<int>> ss2) =
+        (\forall seq<int> s; s in ss1; s in ss2);
+
+	/* Union-find operations */
+    /* -------------------------------------------------------------------------------------------------------------- */
+/*
+    requires UnionFind(N, S);
+    requires 0 <= v && v < N;
+    ensures \old(S) == S;
+    ensures v in S[\result];
+    int find(int N, map<int, set<int>> S, int v) {
+        int result = -1;
+        int i = 0;
+
+        loop_invariant 0 <= i && i <= N;
+        loop_invariant result == -1 || (v in S[result] && result in keysMap(S));
+        loop_invariant \old(S) == S;
+        loop_invariant \old(N) == N;
+        loop_invariant UnionFind(\old(N), \old(S));
+        loop_invariant UnionFind(N, S);
+        //loop_invariant i == N || (\exists int k; k in keysMap(S); i in S[k]);
+        while (i < N) {
+            if (i in keysMap(S)) {
+                if (v in S[i]) {
+                    result = i;
+                }
+            }
+            i++;
+        }
+        //assert result != -1 && v in S[result] ;
+
+        return result;
+    }
+
+/*
+    requires UnionFind(N, S);
+    requires 0 <= v && v < N;
+    void unite(int N, map<int, set<int>> S, int v, int w) {
+        int root_v = find(N, S, v);
+        int root_w = find(N, S, w);
+        buildMap(S, v, S[v] + S[w]); // replace value of v in S with value of w appended to value of v
+        removeFromMap(S, w); // remove entry w in S
+    }
+*/
+    void main() {
+        seq<int> p1 = [1, 3, 5];
+        seq<int> p2 = [0, 2, 4, 6];
+        seq<int> p3 = [0, 1, 2, 4, 6];
+        seq<int> p4 = [0, 4, 6];
+        seq<int> p5 = [1, 1, 3, 5];
+        int N = 7;
+        map<int, seq<int>> uf1 = map<int, seq<int>>{1 -> p1, 0 -> p2};
+        map<int, seq<int>> uf2 = map<int, seq<int>>{2 -> p1, 4 -> p2};
+        map<int, seq<int>> uf3 = map<int, seq<int>>{1 -> p1, 2 -> p3};
+        map<int, seq<int>> uf4 = map<int, seq<int>>{1 -> p1, 0 -> p4};
+        map<int, seq<int>> uf5 = map<int, seq<int>>{1 -> p5, 0 -> p5};
+        assert UnionFind(N, uf1);
+        //assert !UnionFind(N, uf2); // key not in own set
+        //assert !UnionFind(N, uf3); // partitions not disjoint
+        //assert !UnionFind(2, uf1); // N too small
+        //assert !UnionFind(N, uf4); // not all 0 <= n < N present (missing n = 2)
+
+
+        //assert UnionFind(N, uf4);
+        //assert 1 <= |uf4| && |uf4| <= N;
+        //assert (\forall int k; k in keysMap(uf4); 0 <= |uf4[k]| && |uf4[k]| <= N);
+        //assert (\forall int k1; k1 in keysMap(uf4); (\forall int k2; k2 in keysMap(uf4) && k1 != k2; uf4[k1] - uf4[k2] == uf4[k1]));
+        //assert (\forall int k; k in keysMap(uf4); k in uf4[k]);
+        //assert !(\forall int i; 0 <= i && i < N; (\exists int k; k in keysMap(uf4); i in uf4[k]));
+        //assert (\forall int k; k in keysMap(uf4); (\forall int i; i in uf4[k]; 0 <= i && i < N));
+
+
+        map<int, boolean> t1 = map<int, boolean>{0 -> true, 0 -> false};
+        // What happens with duplicate keys:
+        assert t1[0] == false;
+    }
+
+
+}

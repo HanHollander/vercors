@@ -1,0 +1,107 @@
+/* Sequential Union Find */
+
+class UF {
+
+    // determines whether 'S' is a valid disjoint mapping from int (positive, bounded by N) to 2^int (same bounds)
+	// returns true iff:
+	// 1. size constraints on S
+	// 2. size constraints on the value sets in S
+	// 3. disjointness of the value sets
+	// 4. the key is always in the value set of that key
+	// 5. all values from 0 to N (exclusive) are in at least one value set
+	// 6. value constraints on elements in the value sets
+	// The keys are implicitly unique by definition of the map structure, so no need to prove this.
+	// From the uniqueness property of elements of sets (implicit), and the disjointness (3) and completeness (5), it
+	// follows that all states occur exactly once in the value sets.
+	// From the fact that keys are in their own value set (4), and that all states in the value set are at least 0 and
+	// at most N - 1 (6), it follows that all keys are at least 0 and at most N - 1.
+    static inline pure boolean UnionFind(int N, map<int, set<int>> S) =
+	    1 <= |S| && |S| <= N &&
+	    (\forall int k; k in keysMap(S); 0 <= |S[k]| && |S[k]| <= N) &&
+	    (\forall int k1; k1 in keysMap(S); (\forall int k2; k2 in keysMap(S) && k1 != k2; S[k1] - S[k2] == S[k1])) &&
+	    (\forall int k; k in keysMap(S); k in S[k]) &&
+	    (\forall int i; 0 <= i && i < N; i in flatten(N, valuesMap(S))) &&
+	    (\forall int k; k in keysMap(S); (\forall int i; i in S[k]; 0 <= i && i < N));
+
+    //static pure seq<int> flatten(seq<seq<int>> ss) =
+    //    (|ss| == 0) ? [t: int] : head(ss) + flatten(tail(ss));
+
+    //ensures (\forall set<int> s; s in ss; (\forall int x; x in s; x in \result));
+    //ensures (\forall int x; !(x in \result); (\forall set<int> s; s in ss; !(x in s)));
+    requires (\forall set<int> s; s in ss; 0 <= |s| && |s| < N);
+    requires (\forall set<int> s; s in ss; (\forall int i; i in s; 0 <= i && i < N));
+    ensures (\forall set<int> s; s in ss; (\forall int i; i in s; i in \result));
+    static pure set<int> flatten(int N, set<set<int>> ss);
+
+	/* Union-find operations */
+    /* -------------------------------------------------------------------------------------------------------------- */
+
+    /*
+    requires UnionFind(N, S);
+    requires 0 <= v && v < N;
+    ensures \old(S) == S;
+    ensures v in S[\result];
+    int find(int N, map<int, set<int>> S, int v) {
+        int result = -1;
+        int i = 0;
+
+        loop_invariant 0 <= i && i <= N;
+        loop_invariant result == -1 || (v in S[result] && result in keysMap(S));
+        loop_invariant \old(S) == S;
+        loop_invariant \old(N) == N;
+        loop_invariant UnionFind(\old(N), \old(S));
+        loop_invariant UnionFind(N, S);
+        //loop_invariant i == N || (\exists int k; k in keysMap(S); i in S[k]);
+        while (i < N) {
+            if (i in keysMap(S)) {
+                if (v in S[i]) {
+                    result = i;
+                }
+            }
+            i++;
+        }
+        //assert result != -1 && v in S[result] ;
+
+        return result;
+    }
+
+    requires UnionFind(N, S);
+    requires 0 <= v && v < N;
+    void unite(int N, map<int, set<int>> S, int v, int w) {
+        int root_v = find(N, S, v);
+        int root_w = find(N, S, w);
+        buildMap(S, v, S[v] + S[w]); // replace value of v in S with value of w appended to value of v
+        removeFromMap(S, w); // remove entry w in S
+    }
+   */
+
+    void main() {
+        set<int> p1 = {1, 3, 5};
+        set<int> p2 = {0, 2, 4, 6};
+        set<int> p3 = {0, 1, 2, 4, 6};
+        set<int> p4 = {0, 4, 6};
+        int N = 7;
+        map<int, set<int>> uf1 = map<int, set<int>>{1 -> p1, 0 -> p2};
+        map<int, set<int>> uf2 = map<int, set<int>>{2 -> p1, 4 -> p2};
+        map<int, set<int>> uf3 = map<int, set<int>>{1 -> p1, 2 -> p3};
+        map<int, set<int>> uf4 = map<int, set<int>>{1 -> p1, 0 -> p4};
+        assert UnionFind(N, uf1);
+        assert !UnionFind(N, uf2); // key not in own set (4)
+        assert !UnionFind(N, uf3); // partitions not disjoint
+        assert !UnionFind(2, uf1); // N too small
+        //assert !UnionFind(N, uf4);
+        assert 1 <= |uf4| && |uf4| <= N;
+        assert (\forall int k; k in keysMap(uf4); 0 <= |uf4[k]| && |uf4[k]| <= N);
+        assert (\forall int k1; k1 in keysMap(uf4); (\forall int k2; k2 in keysMap(uf4) && k1 != k2; uf4[k1] - uf4[k2] == uf4[k1]));
+        assert (\forall int k; k in keysMap(uf4); k in uf4[k]);
+        assert !(\forall int i; 0 <= i && i < N; i in flatten(N, valuesMap(uf4)));
+        assert (\forall int k; k in keysMap(uf4); (\forall int i; i in uf4[k]; 0 <= i && i < N));
+        //assert !UnionFind(N, uf4); // not all 0 <= n < N present (missing n = 2)
+
+        map<int, boolean> t1 = map<int, boolean>{0 -> true, 0 -> false};
+        // What happens with duplicate keys:
+        assert t1[0] == false;
+    }
+
+
+}

@@ -16,6 +16,7 @@ tmp
 tmp.*
 vct-tool.jar
 *~
+/examples/suppmat-oortwijn
 
 # Vim swap file
 *.swp
