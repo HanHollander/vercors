@@ -97,6 +97,10 @@ public class JavaSyntax extends Syntax {
         syntax.addFunction(MapGetByKey, "getFromMap");
         syntax.addFunction(MapRemoveKey, "removeFromMap");
         syntax.addFunction(MapItemSet, "itemsMap");
+        syntax.addFunction(TupleFst, "getFst");
+        syntax.addFunction(TupleSnd, "getSnd");
+
+        syntax.addOperator(SeqUpdate, 10, "", "[","","->","","]");
 
         JavaVerCorsSyntax=syntax;
         

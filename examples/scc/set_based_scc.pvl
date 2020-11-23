@@ -12,6 +12,17 @@ class SB {
     set<int> Visited;
 
 
+    /* --------------------------------------------------------------------------------------------- Helper functions */
+
+    static pure boolean range(int x, int lower, int upper) = lower <= x && x < upper;
+
+    static pure boolean findHelper(int i, int N, seq<int> S, int v) =
+        SB.range(i, 0, N) && 0 <= v && v < N && SB.UnionFind(N, S) && SB.rep(N, S, i) == SB.rep(N, S, v);
+
+    static inline pure boolean disjoint(set<int> P, set<int> Q) =
+        P - Q == P;
+
+
     /* -------------------------------------------------------------------------------------------------------- Stack */
 
     // determines whether 'S' is a valid stack, represented by a sequence
@@ -27,25 +38,31 @@ class SB {
     requires Stack(N, R);  // R is a valid stack
     ensures v in \result;  // v is in the result
     ensures Stack(N, \result);  // the result is a valid stack
+    ensures |\result| > 0;
     static pure seq<int> push(int N, seq<int> R, int v) =
         R ++ v;
 
     // pop(N, R): returns and removes last state (highest index) of/from R
-    requires |R| > 0;  // there is at least one element on the stack
     requires Stack(N, R);  // R is a valid stack
-    ensures getSnd(\result) == R[|R| - 1];  // the popped state is the last state from R
-    ensures getFst(\result) == R[0..|R| - 1];  // the resulting stack is R without the last state
-    ensures (\forall int i; i in getFst(\result); i in R);
-    ensures Stack(N, getFst(\result));  // the resulting stack is a valid stack
+    requires |R| > 0 ==> R[|R| - 1] in R;
+    ensures |R| > 0 ==> getSnd(\result) == R[|R| - 1];  // the popped state is the last state from R
+    ensures |R| > 0 ==> 0 <= getSnd(\result) && getSnd(\result) < N;
+    ensures |R| > 0 ==> getFst(\result) == R[0..|R| - 1];  // the resulting stack is R without the last state
+    ensures |R| > 0 ==> (\forall int i; i in getFst(\result); i in R);
+    ensures |R| > 0 ==> Stack(N, getFst(\result));  // the resulting stack is a valid stack
+    ensures |R| > 0 ==> (\forall int x; x in getFst(\result); x in R);  // resulting stack is subset of input
+    ensures |R| <= 0 ==> \result == tuple<seq<int>, int> {[t:int], -1};
     static pure tuple<seq<int>, int> pop(int N, seq<int> R) =
-        tuple<seq<int>, int> {R[0..|R| - 1], R[|R| - 1]};
+        |R| > 0 ? tuple<seq<int>, int> {R[0..|R| - 1], R[|R| - 1]} : tuple<seq<int>, int> {[t:int], -1};
 
     // top(N, R); returns last state (highest index) of R (peeks at top of R)
-    requires |R| > 0;  // there is at least one element on the stack
     requires Stack(N, R);  // R is a valid stack
-    ensures \result == R[|R| - 1];  // the returned/peeked state is the last state from R
+    requires |R| > 0 ==> R[|R| - 1] in R;
+    ensures |R| > 0 ==> \result == R[|R| - 1];  // the returned/peeked state is the last state from R
+    ensures |R| > 0 ==> 0 <= \result && \result < N;
+    ensures |R| <= 0 ==> \result == -1;
     static pure int top(int N, seq<int> R) =
-        R[|R| - 1];
+        |R| > 0 ? R[|R| - 1] : -1;
 
 
     /* --------------------------------------------------------------------------------------------------- Union-find */
@@ -81,22 +98,43 @@ class SB {
     requires UnionFind(N, S);
     //ensures 0 <= |\result| && |\result| <= N;
     ensures UnionFind(N, S);
-    ensures (\forall int i; 0 <= i && i < N; SB.rep(N, S, i) == SB.rep(N, S, v) ==> i in \result);
+    //ensures (\forall int i; 0 <= i && i < N; SB.rep(N, S, i) == SB.rep(N, S, v) ==> i in \result);
+    ensures (\forall int j; j in \result; findHelper(j, N, S, v));
+    ensures (\forall int j; j in \result; range(j, 0, N));
     static pure set<int> find(int N, seq<int> S, int v) =
         set<int> {i | int i, int N <- [N], seq<int> S <- [S], int v <- [v];
-                      0 <= i && i < N && 0 <= v && v < N && SB.UnionFind(N, S) && SB.rep(N, S, i) == SB.rep(N, S, v)};
+            SB.findHelper(i, N, S, v)};
 
 
     /* --------------------------------------------------------------------------------------------- Graph Properties */
 
     // determines whether `C` is a component in a graph with size `N`
     static inline pure boolean Component(int N, set<int> C) =
-        0 < |C| && |C| <= N &&
+        0 <= |C| && |C| <= N &&
         (\forall int v; v in C; 0 <= v && v < N);
+
+    static inline pure boolean NonEmptyComponent(int N, set<int> C) =
+        Component(N, C) && |C| > 0;
 
     // determines whether `G` is an adjacency matrix of size `N`
     static inline pure boolean AdjacencyMatrix(int N, seq<seq<boolean>> G) =
         |G| == N && (\forall seq<boolean> e; e in G; |e| == N);
+
+
+    /* ----------------------------------------------------------------------------------------- Algorithm Properties */
+
+    ensures (\forall int j; j in \result; range(j, 0, N));
+    ensures (\forall int j; range(j, 0, N); j in \result);  // [warning] class ... does not implement matching (2x)
+    static pure set<int> V(int N) =
+        set<int> {i | int i, int N <- [N]; SB.range(i, 0, N)};
+
+    requires Perm(N, 1\2) ** Perm(Visited, 1\2);
+    pure inline set<int> Unseen() =
+        V(N) - Visited;
+
+    requires Perm(Visited, 1\2) ** Perm(Explored, 1\2);
+    pure inline set<int> Live() =
+        Visited - Explored;
 
 
     /* -------------------------------------------------------------------------------------------------------- Paths */
@@ -125,42 +163,141 @@ class SB {
     static pure boolean ExFittingPath(int N, seq<seq<boolean>> G, int x, int y, int len, set<int> C) =
         (\exists seq<int> P; len <= |P|; FittingPath(N, G, x, y, P, C));
 
+
     /* --------------------------------------------------------------------------------------------------------- SCCs */
 
-    requires Component(N, C);
+    requires NonEmptyComponent(N, C);
     requires AdjacencyMatrix(N, G);
     static pure boolean PSCC(int N, seq<seq<boolean>> G, set<int> C) =
         (\forall int v; v in C; (\forall int w; w in C && w != v; ExPath(N, G, v, w, 1) &&
                                                                   ExPath(N, G, w, v, 1)));
-    requires Component(N, C);
+    requires NonEmptyComponent(N, C);
     requires AdjacencyMatrix(N, G);
     static pure boolean FSCC(int N, seq<seq<boolean>> G, set<int> C) =
         (\forall int v; v in C; (\forall int w; w in C && w != v; ExFittingPath(N, G, v, w, 1, C) &&
                                                                   ExFittingPath(N, G, w, v, 1, C)));
-    requires Component(N, C);
+    requires NonEmptyComponent(N, C);
     requires AdjacencyMatrix(N, G);
     static pure boolean SCC(int N, seq<seq<boolean>> G, set<int> C) =
         FSCC(N, G, C) &&
-        (\forall set<int> Cp; Component(N, Cp) && FSCC(N, G, Cp) && Cp != C; !(\forall int i; i in C; i in Cp));
+        (\forall set<int> Cp; NonEmptyComponent(N, Cp) && FSCC(N, G, Cp) && Cp != C; !(\forall int i; i in C; i in Cp));
 
 
+    /* ------------------------------------------------------------------------------------------------------- Lemmas */
+
+    // Lemma 1 - Given some set S, where (\forall int a; a in S; 0 <= a && a < N) and (\exists int b; 0 <= b && b < N;
+    //           !(b in S)), then |S| < N holds. (Proof by contradiction)
+    requires 0 < N;
+    requires (\forall int a; a in S; 0 <= a && a < N);
+    requires (\exists int b; 0 <= b && b < N; !(b in S));
+    ensures |S| < N;
+    void lemma_1_set(int N, set<int> S) {
+        if (|S| < N) {
+            // OK
+        } else {
+            // |S| >= N
+            // Assertion: (\exists int b; 0 <= b && b < N; !(b in S))
+            // Contradiction: lemma 2 proves (\forall int b; 0 <= b && b < max; b in S) (and max == N)
+            int max = N; lemma_2_set(N, max, S);
+            assert false;
+        }
+    }
 
 
+    // Lemma 2 - Given some set S, where |S| >= N and (\forall int a; a in S; 0 <= a < max), then (\forall int b;
+    //           0 <= b && b < max; b in S) holds. (Proof by induction and contradiction)
+    requires 0 < N;
+    requires 0 < max && max <= N;
+    requires |S| >= N && (\forall int a; a in S; 0 <= a && a < max);
+    ensures N == max ==> (\forall int b; 0 <= b && b < max; b in S);
+    ensures N > max ==> false;
+    void lemma_2_set(int N, int max, set<int> S) {
+        if (max == 1) {
+            // Base case: S == {0};
+            assert S == {0};  // Explicit assert needed
+            if (N == max) {
+                // OK
+            } else {
+                // N > max
+                // Assertion: |S| == 1 (because S == {0})
+                // Contradiction: |S| >= 2 (because N > max, max == 1 and |S| >= N)
+                assert false;
+            }
+        } else {
+            // max > 1 && N > 1;
+            if ((max - 1) in S) {
+                // OK
+                // Induction hypothesis: (\forall int b; 0 <= b && b < max - 1; b in S - {max - 1})
+                lemma_2_set(N - 1, max - 1, S - {max - 1});
+                assert (S - {max - 1}) + {max - 1} == S;  // Explicit assert needed
+            } else {
+                // !((max - 1) in S)
+                lemma_2_set(N, max - 1, S - {max - 1});
+                assert false;
+            }
+        }
+    }
+
+    // Lemma 3 - Given some set S and some sequence R, (\forall int x; x in R; x in S) and all elements in R are unique,
+    //           then |R| <= |S|. (Proof by induction)
+    requires (\forall int x; x in R; x in S);
+    requires (\forall int i; 0 <= i && i < |R|; (\forall int j; i < j && j < |R|; R[i] != R[j]));
+    ensures |R| <= |S|;
+    void lemma_3_set(set<int> S, seq<int> R) {
+        if (|R| == 0) {
+            // Base case: R == []
+        } else {
+            // |R| != 0
+            // Induction hypothesis: |tail(R)| <= |S - {head(R)}|;
+            lemma_3_set(S - {head(R)}, tail(R));
+        }
+    }
+
+    // Lemma 4 - Given some set S, where (\forall int a; a in S; 0 <= a < max), then |S| <= N;
+    requires 0 <= N;
+    requires 0 <= max && max <= N;
+    requires (\forall int a; a in S; 0 <= a && a < max);
+    ensures |S| <= N;
+    void lemma_4_set(int N, int max, set<int> S) {
+        if (max == 0) {
+            // Base case: S == {}
+        } else {
+            // max > 0
+            if ((max - 1) in S) {
+                // Induction hypothesis case (max - 1) in S: |S - {max - 1}| <= N - 1
+                lemma_4_set(N - 1, max - 1, S - {max - 1});
+            } else {
+                // Induction hypothesis case !((max -1) in S): |S - {max - 1}| <= N
+                lemma_4_set(N, max - 1, S - {max - 1});
+            }
+        }
+    }
+
+
+    /* ------------------------------------------------------------------------------------------------ Set-based SCC */
 
     // ---- context_everywhere ---- \\
     context_everywhere Perm(N, 1\2) ** Perm(G, 1\2) ** Perm (S, 1) ** Perm(R, 1) **
                        Perm(Explored, 1) ** Perm(Visited, 1);  // Permissions for global state
-    context_everywhere AdjacencyMatrix(N, G) && UnionFind(N, S) && Stack(N, R) &&
-                       Component(N, Explored) && Component(N, Visited);  // Constraints on global state
-    context 0 <= v && v < N;  // Constraints on v
+    context_everywhere 0 < N && AdjacencyMatrix(N, G) && UnionFind(N, S) && Stack(N, R)
+                       && Component(N, Explored) && Component(N, Visited);  // Constraints on global state
+    context_everywhere disjoint(Explored, Unseen()) && disjoint(Explored, Live())
+                       && disjoint(Unseen(), Live());  // Explored, Unseen and Live are all disjoint from each other
+    context_everywhere Unseen() + Live() + Explored == V(N);  // Unseen, Live and Explored partition V
+    context_everywhere (\forall int x; x in R; x in Visited);  // R is a subset of Visited
+    context_everywhere (\forall int x; x in Explored; x in Visited);  // Explored is a subset of Visited
+    context_everywhere (\forall int x; x in Visited; x in V(N));  // Visited is a subset ov V(N)
     // --------- requires --------- \\
-    requires !(v in Visited) && |Visited| < N;
-    requires !(v in R) && |R| < N;
-    requires (\forall int v; v in R; v in Visited);  // R is a subset of Visited
-    // ---------- ensures --------- \\
-    //ensures (\forall int c; c in \result; 0 <= c);
-    //ensures (\forall int c; c in \result; FSCC(N, G, find(N, \result, c)));  // SOUNDNESS: All partitions in S are FSCC
-    //ensures (\forall int c; c in \result; SCC(find(N, S, c)));  // SOUNDNESS+COMPLETENESS 1
+    requires 0 <= v && v < N;  // Constraints on v
+    requires !(v in Visited) && |Visited| < N;  // v is not yet visited
+    requires !(v in R) && |R| < N;  // v is not yet on the stack
+    // --------- ensures ---------- \\
+    ensures N == \old(N) && G == \old(G) && v == \old(v);  // N, G and v are unchanged
+    ensures |R| >= 0;
+    //ensures (\forall int x; x in R; (\forall int y; y in R && y != x; find(N, S, x) != find(N, S, y)));
+    //ensures (\forall int c; c in S; 0 <= c);
+    //ensures (\forall int c; c in S; FSCC(N, G, find(N, S, c)));  // SOUNDNESS: All partitions in S are FSCC
+    //ensures (\forall int c; c in S; SCC(find(N, S, c)));  // SOUNDNESS+COMPLETENESS 1
     //ensures All reachable SCCs are in S;  // COMPLETENESS 2
     seq<int> SetBased(int v){
 
@@ -169,53 +306,43 @@ class SB {
 
         int w = 0;
 
-        //assert 0 <= v && v < N;
-
         loop_invariant 0 <= v && v < N;
         loop_invariant 0 <= w && w <= N;
-        loop_invariant (\forall int v; v in R; v in Visited);
-        //loop_invariant |R| <= |Visited|;
-        //loop_invariant |R| <= N;
+        loop_invariant N == \old(N) && G == \old(G) && v == \old(v);
+        loop_invariant |R| >= 0;
         while (w < N) {
-            //assert 0 <= v && v < N;
             if (G[v][w]) {  // True if w successor of v
-        	    if (!(w in Explored)) {  // True if
-        	        if (!(w in Visited)) {
-
-                        //assert !(w in Visited) ==> !(w in R);
-        	            //assert !(w in R);  // w is not in Visited, and R is a subset of Visited, so w is not in R
-        	            //assert Stack(N, R);
-        	            //assert (\exists int x; 0 <= x && x < N; !(x in R));
-                        //assert |R| < N;
-                        //assert |Visited| < N;
-                        //assert Component(N, Visited);
-                        //assert 0 <= w && w < N && !(w in Visited);
-
-
-                        assume !(w in Visited) ==> |Visited| < N;  // TODO ASSUME
-                        assume |R| < N;  // TODO ASSUME
-                        assume !(w in R);  // TODO ASSUME
+        	    if (!(w in Explored)) {  // True if w not yet fully explored
+        	        if (!(w in Visited)) {  // True if w not yet visited (partially explored)
+                        lemma_1_set(N, Visited);  // |Visited| < N
+                        lemma_3_set(Visited, R);  // |R| <= |Visited| (< N)
 
         	            SetBased(w);
         	        } else {
 
-
-        	            //while (find(N, S, v) != find(N, S, w)) {
-        	            //    tuple<seq<int>, int> t = pop(N, R); R = getFst(t); int r = getSnd(t);
-        	            //    unite(N, S, r, top(N, R));
-        	            //}
+                        loop_invariant 0 <= v && v < N;
+                        loop_invariant 0 <= w && w <= N;
+                        loop_invariant N == \old(N) && G == \old(G) && v == \old(v);
+                        loop_invariant |R| >= 0;
+        	            while (find(N, S, v) != find(N, S, w)) {
+        	                assume |R| > 0;  // TODO ASSUME
+        	                tuple<seq<int>, int> t = pop(N, R); R = getFst(t); int r = getSnd(t);
+        	                assume |R| > 0;  // TODO ASSUME
+        	                unite(N, S, r, top(N, R));
+        	            }
         	        }
         	    }
             }
             w++;
         }
-        assert 0 <= v && v < N;
+
 
         if (v == top(N, R)) {
+            assume (\forall int x; x in find(N, S, v); x in Visited);
             Explored = Explored + find(N, S, v);
+            int max = N; lemma_4_set(N, max, Explored);  // |Explored| <= N
+            pop(N, R);
         }
-
-        return S;
     }
-}
 
+}
