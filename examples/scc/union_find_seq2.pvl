@@ -6,7 +6,21 @@ class UF {
     static inline pure boolean UnionFind(int N, seq<int> S) =
         |S| == N &&  // Size constrain on S
         (\forall int i; 0 <= i && i < N; 0 <= S[i] && S[i] < N) &&  // Bounds on elements of S
-        (\forall int i; 0 <= i && i < N; S[rep(N, S, i)] == rep(N, S, i));
+        (\forall int i; 0 <= i && i < N; S[rep(N, S, i)] == rep(N, S, i)) &&
+        (\forall int i; 0 <= i && i < N; (\exists int j; 0 <= j && j < N; j == rep(N, S, i)));
+
+    //static inline pure boolean nocycle(seq<int> S, int v, set<int> L) =
+    //    S[v] == v
+
+
+    /*
+    if S[v]) == v:
+        return true
+    else:
+        if v not in L:
+            nocycle(S, S[v], L + [v])
+        else:
+            return false*/
 
     // recursively finds the representative of v in S
     requires 0 <= v && v < N;
@@ -47,6 +61,9 @@ class UF {
 
         /* UnionFind */
         assert UnionFind(N, p1);
+        assert p2[rep(N, p2, 4)] == rep(N, p2, 4);
+        assert rep(N, p2, 4) == 0;
+        assert UnionFind(N, p2);
 
         /* rep */
         assert rep(N, p1, 0) == 0;
